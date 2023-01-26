@@ -1,0 +1,7 @@
+aggdraw==1.3.15
+KLibs @ git+https://github.com/a-hurst/klibs.git@2a7430407fef71d6a9bb6df7365133ee62a4abe0
+numpy==1.24.1
+Pillow==9.4.0
+PyOpenGL==3.1.6
+PySDL2==0.9.15
+pysdl2-dll==2.26.2

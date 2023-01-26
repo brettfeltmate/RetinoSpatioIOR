@@ -7,6 +7,7 @@ from klibs import P
 from klibs.KLConstants import STROKE_CENTER
 from klibs.KLUtilities import deg_to_px
 from klibs.KLGraphics import KLDraw as kld
+from klibs.KLBoundary import BoundarySet, CircleBoundary
 
 WHITE = (255, 255, 255, 255)
 BLACK = (0, 0, 0, 255)
@@ -110,7 +111,23 @@ class RetinoSpatioIOR(klibs.Experiment):
 			Fixation-lower
 		"""
 
-
+		self.gaze = BoundarySet([
+			CircleBoundary(
+				label = "upper", 
+				center = self.locations["fixation"]['upper'], 
+				radius = deg_to_px(1.5)
+			),
+			CircleBoundary(
+				label = "middle",
+				center = self.locations['fixation']['middle'],
+				radius = deg_to_px(1.5)
+			),
+			CircleBoundary(
+				label = "lower",
+				center = self.locations['fixation']['lower'],
+				radius = deg_to_px(1.5)
+			)
+		])
 
 
 
