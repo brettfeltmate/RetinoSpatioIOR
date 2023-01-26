@@ -43,19 +43,19 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		self.locations = {
 			'placeholders': {
-				0: [P.screen_c[0] - offset, P.screen_c[1] - (offset*3)],
-				1: [P.screen_c[0] + offset, P.screen_c[1] - (offset*3)],
-				2: [P.screen_c[0] - offset, P.screen_c[1] - offset],
-				3: [P.screen_c[0] + offset, P.screen_c[1] - offset],
-				4: [P.screen_c[0] - offset, P.screen_c[1] + offset],
-				5: [P.screen_c[0] + offset, P.screen_c[1] + offset],
-				6: [P.screen_c[0] - offset, P.screen_c[1] + (offset * 3)],
-				7: [P.screen_c[0] + offset, P.screen_c[1] + (offset * 3)],
+				0: (P.screen_c[0] - offset, P.screen_c[1] - (offset*3)),
+				1: (P.screen_c[0] + offset, P.screen_c[1] - (offset*3)),
+				2: (P.screen_c[0] - offset, P.screen_c[1] - offset),
+				3: (P.screen_c[0] + offset, P.screen_c[1] - offset),
+				4: (P.screen_c[0] - offset, P.screen_c[1] + offset),
+				5: (P.screen_c[0] + offset, P.screen_c[1] + offset),
+				6: (P.screen_c[0] - offset, P.screen_c[1] + (offset * 3)),
+				7: (P.screen_c[0] + offset, P.screen_c[1] + (offset * 3)),
 			},
 			'fixation': {
-				'upper': [P.screen_c[0], P.screen_c[1] - (offset*2)],
+				'upper': (P.screen_c[0], P.screen_c[1] - (offset*2)),
 				'middle': P.screen_c,
-				'lower': [P.screen_c[0], P.screen_c[1] + (offset*2)],
+				'lower': (P.screen_c[0], P.screen_c[1] + (offset*2)),
 			}
 		}
 
