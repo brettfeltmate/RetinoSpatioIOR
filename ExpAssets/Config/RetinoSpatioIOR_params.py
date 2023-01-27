@@ -43,7 +43,7 @@ multi_session_project = False
 trials_per_block = 0
 blocks_per_experiment = 1
 table_defaults = {}
-conditions = []
+conditions = ["prosaccade", "antisaccade"]
 default_condition = None
 
 #########################################
@@ -66,3 +66,8 @@ datafile_ext = ".txt"
 #########################################
 # PROJECT-SPECIFIC VARS
 #########################################
+fixation_duration = 750
+cue_duration = 300
+cue_saccade_onset_asynchrony = 600
+saccade_timeout = 600
+response_timeout = 1500

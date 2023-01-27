@@ -5,12 +5,14 @@ __author__ = "Brett Feltmate"
 import klibs
 from klibs import P
 from klibs.KLConstants import STROKE_CENTER
-from klibs.KLUtilities import deg_to_px 
+from klibs.KLUtilities import deg_to_px
+from klibs.KLUserInterface import ui_request
 from klibs.KLGraphics import fill, blit, flip
 from klibs.KLGraphics import KLDraw as kld
 from klibs.KLBoundary import BoundarySet, CircleBoundary
 from klibs.KLCommunication import message
 from klibs.KLResponseCollectors import KeyPressResponse
+from klibs.KLExceptions import TrialException
 
 WHITE = (255, 255, 255, 255)
 BLACK = (0, 0, 0, 255)
@@ -131,7 +133,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 
 		self.error_msgs = {
-			"EarlySaccade":  message("Moved eyes too soon!", blit_txt=False),
+			"BrokeFixation":  message("Moved eyes too soon!", blit_txt=False),
 			"MissedSaccade": message("No eye movement detected!", blit_txt=False),
 			"WrongSaccade":  message("Moved eyes in wrong direction!", blit_txt=False),
 			"EarlyResponse": message("Please wait until the target appears to respond!", blit_txt=False)
@@ -167,13 +169,84 @@ class RetinoSpatioIOR(klibs.Experiment):
 		pass
 
 	def trial_prep(self):
-		# Set location of saccade cue (dependent on pro/anti group)
-		# Set location of target (dependent on saccade location)
+		'''
+		TODO:
+			Determine location of saccade cue
+				Matches saccade target in pro, opposite in anti
+			Determine location of target
+				Dependent on saccade target
+				if upper: 1-6
+				if lower: 3-8
+			Event timing:
+				T0: drift correct
+				T0 - T300: target cue
+				T300 - T900: saccade (abort trial if none made)
+				Tsacc+300: Target
+				Ttarg+1500: TO if no response
+		'''
+
+		# If participants are to make a prosaccade, the signal to saccade appears
+		# at the location the are to saccade to. Otherwise (antisaccades) the signal
+		# appears at the location opposite.
+		if P.condtion == "prosaccade":
+			self.saccade_signal_loc = self.saccade_loc
+		else:
+			self.saccade_signal_loc = "upper" if self.saccade_loc == "lower" else "lower"
+
+		# Following upwards saccades, targets can appear at locations 1-6
+		# otherwise, only 3 - 8. Initially cue location is selected from 1-6
+		# if following a downwards saccade, 2 is added to the target position.
+		if self.saccade_loc == 'upper':
+			self.target_location == self.target_loc
+		else:
+			self.target_location = self.target_loc + 2
+
+		events = []
+		events.append([P.fixation_duration, "cue_onset"])
+		events.append([events[-1][0] + P.cue_duration, "cue_offset"])
+		events.append([events[-1][0] + P.cue_saccade_onset_asynchrony, "saccade_signal_onset"])
+		events.append([events[-1][0] + P.saccade_timeout, "saccade_timeout"])
+		# NOTE: Timing of remaining events (target & response) are conditional on time of re-fixation, so will be handled in trial()
+
+		for e in events:
+			self.evm.register_ticket([e[1], e[0]])
+
+		self.refresh_display()
+		self.el.drift_correct()
+		self.bad_behaviour = None
 
 		
-		pass
 
 	def trial(self):
+
+		while self.evm.before("saccade_signal_onset"):
+			ui_request() # Check for commands to quit or recalibrate
+
+			# Abort if gaze ventures outside of fixation
+			if self.gaze.within_boundary("centre", self.el.gaze()):
+
+				if self.evm.between('cue_onset', 'cue_offset'):
+					self.refresh_display(show_cue=True)
+
+				else:
+					self.refresh_display()
+			else:
+				self.bad_behaviour = "BrokeFixation"
+				raise TrialException
+		
+		
+		
+
+			
+
+
+
+
+
+		while self.gaze.within_boundary("center", self.el.gaze()):
+			
+
+
 		"""
 		:return:
 		practicing: True or False
@@ -198,3 +271,41 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 	def clean_up(self):
 		pass
+
+	def refresh_display(self, show_cue=False, show_saccade=False, show_target=False):
+		fill()
+
+		for key, val in self.locations['placeholders']:
+			
+			if key == self.cue_loc and show_cue:
+				to_blit = 'cued_placeholder'
+			else:
+				to_blit = 'placeholder'
+
+			blit(
+				self.stimuli[to_blit],
+				registration=5,
+				location=val
+			)
+		
+		for key, val in self.locations['fixation']:
+			if key == self.saccade_signal_loc and show_saccade:
+				to_blit = 'cued_fixation'
+			else:
+				to_blit = 'fixation'
+
+			blit(
+				self.stimuli[to_blit],
+				registration=5,
+				location=val,
+			)
+			
+
+		if show_target:
+			blit(
+				self.stimuli['target'],
+				registration=5,
+				location=self.locations[self.target_location]
+			)
+
+		flip()
