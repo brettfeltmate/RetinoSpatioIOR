@@ -4,9 +4,9 @@ __author__ = "Brett Feltmate"
 
 import klibs
 from klibs import P
-from klibs.KLConstants import STROKE_CENTER
-from klibs.KLUtilities import deg_to_px
-from klibs.KLUserInterface import ui_request
+from klibs.KLConstants import STROKE_CENTER, TK_MS
+from klibs.KLUtilities import deg_to_px, now
+from klibs.KLUserInterface import ui_request, key_pressed, any_key
 from klibs.KLGraphics import fill, blit, flip
 from klibs.KLGraphics import KLDraw as kld
 from klibs.KLBoundary import BoundarySet, CircleBoundary
@@ -44,17 +44,17 @@ class RetinoSpatioIOR(klibs.Experiment):
 		[]             []
 		"""
 		# Stimuli are offset from each other by units of 6º
-		offset = deg_to_px(6)
+		offset = deg_to_px(3) if P.development_mode else deg_to_px(6)
 
 		# Point positions to serve as anchors when positioning stimuli
 		self.locations = {
 			'placeholders': {
 				1: (P.screen_c[0] - offset, P.screen_c[1] - (offset*1.5)),
 				2: (P.screen_c[0] + offset, P.screen_c[1] - (offset*1.5)),
-				3: (P.screen_c[0] - offset, P.screen_c[1] - offset),
-				4: (P.screen_c[0] + offset, P.screen_c[1] - offset),
-				5: (P.screen_c[0] - offset, P.screen_c[1] + offset),
-				6: (P.screen_c[0] + offset, P.screen_c[1] + offset),
+				3: (P.screen_c[0] - offset, P.screen_c[1] - (offset*0.5)),
+				4: (P.screen_c[0] + offset, P.screen_c[1] - (offset*0.5)),
+				5: (P.screen_c[0] - offset, P.screen_c[1] + (offset*0.5)),
+				6: (P.screen_c[0] + offset, P.screen_c[1] + (offset*0.5)),
 				7: (P.screen_c[0] - offset, P.screen_c[1] + (offset*1.5)),
 				8: (P.screen_c[0] + offset, P.screen_c[1] + (offset*1.5)),
 			},
@@ -131,7 +131,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			)
 		])
 
-
+		# Error messages
 		self.error_msgs = {
 			"BrokeFixation":  message("Moved eyes too soon!", blit_txt=False),
 			"MissedSaccade": message("No eye movement detected!", blit_txt=False),
@@ -139,145 +139,139 @@ class RetinoSpatioIOR(klibs.Experiment):
 			"EarlyResponse": message("Please wait until the target appears to respond!", blit_txt=False)
 		}
 
-		self.rc.uses[KeyPressResponse]
-		self.rc.keypress_listener.key_map = {"spacebar": "spacebar"}
+		self.rc.uses([KeyPressResponse])
+		self.rc.keypress_listener.key_map = {"space": "space"}
 
  
 		"""
-
 		Sequence:
 
 		Fixation  Cue      Saccade      Post-saccade gap  Target & Response
 		|--------|--------|------------|-----------------|-----------------|
 		500ms    300ms     600ms or TO  300ms             1500ms or TO
-
-		Checks / errors (recycled)
-		- Drift calibration
-		- Early saccade
-		- Missed saccade
-		- Incorrect saccade
-		- Departures from fixation
-
-
 		"""
 
 	def block(self):
 		pass
 
 	def setup_response_collector(self):
-		# I don't think anything needs to go here
-		pass
+		self.rc.display_callback = self.monitor_behaviour
+		self.rc.display_kwargs = {"phase": "target"}
+		self.rc.interrupts = True
 
 	def trial_prep(self):
-		'''
-		TODO:
-			Determine location of saccade cue
-				Matches saccade target in pro, opposite in anti
-			Determine location of target
-				Dependent on saccade target
-				if upper: 1-6
-				if lower: 3-8
-			Event timing:
-				T0: drift correct
-				T0 - T300: target cue
-				T300 - T900: saccade (abort trial if none made)
-				Tsacc+300: Target
-				Ttarg+1500: TO if no response
-		'''
 
-		# If participants are to make a prosaccade, the signal to saccade appears
-		# at the location the are to saccade to. Otherwise (antisaccades) the signal
-		# appears at the location opposite.
-		if P.condtion == "prosaccade":
+		""" 		
+		If participants are to make a prosaccade, the signal to saccade appears at the location the are to saccade to. Otherwise (for antisaccades) the signal appears at the location opposite. 
+		"""
+		if P.condition == "prosaccade":
 			self.saccade_signal_loc = self.saccade_loc
 		else:
 			self.saccade_signal_loc = "upper" if self.saccade_loc == "lower" else "lower"
 
-		# Following upwards saccades, targets can appear at locations 1-6
-		# otherwise, only 3 - 8. Initially cue location is selected from 1-6
-		# if following a downwards saccade, 2 is added to the target position.
+		""" 	
+		Following upwards saccades, targets can appear at locations 1-6 otherwise, only 3 - 8. Initially cue location is selected from 1-6 if following a downwards saccade, 2 is added to the target position. 
+		"""
 		if self.saccade_loc == 'upper':
-			self.target_location == self.target_loc
+			self.target_location = self.target_loc
 		else:
 			self.target_location = self.target_loc + 2
 
+
+		"""
+		Event sequence:
+
+		Fixation  Cue      Saccade      Post-saccade gap  Target & Response
+		|--------|--------|------------|-----------------|-----------------|
+		500ms    300ms     600ms or TO  300ms             1500ms or TO
+
+		NOTE: Onset time of remaining events (target & response) are conditional on time of re-fixation, so will be handled in trial()
+		"""
 		events = []
 		events.append([P.fixation_duration, "cue_onset"])
 		events.append([events[-1][0] + P.cue_duration, "cue_offset"])
 		events.append([events[-1][0] + P.cue_saccade_onset_asynchrony, "saccade_signal_onset"])
 		events.append([events[-1][0] + P.saccade_timeout, "saccade_timeout"])
-		# NOTE: Timing of remaining events (target & response) are conditional on time of re-fixation, so will be handled in trial()
 
+		# Register event sequence w/ event manager
 		for e in events:
 			self.evm.register_ticket([e[1], e[0]])
 
-		self.refresh_display()
-		self.el.drift_correct()
+		# self.el.drift_correct()
 		self.bad_behaviour = None
 
 		
 
 	def trial(self):
+		"""
+		Sequence is basically: present the appropriate display, wait the appropriate time, then present the subsequent display. Participant's behaviour (gaze & pre-emptive responses) are monitored during waiting periods. 
+		
+		Upon detecting any untoward behaviour the trial is aborted, reshuffled into the trial sequence, and the participant is admonished. 
+		"""
+
+		self.refresh_display(phase = "fixation")
+		any_key()
+
+		while self.evm.before("cue_onset"):
+			self.monitor_behaviour(phase = "fixation")
+
+		self.refresh_display(phase = 'cue')
+		any_key()
+
+		while self.evm.before("cue_offset"):
+			self.monitor_behaviour(phase = "cue")
+
+		self.refresh_display(phase = 'fixation')
+		any_key()
 
 		while self.evm.before("saccade_signal_onset"):
-			ui_request() # Check for commands to quit or recalibrate
+			self.monitor_behaviour(phase = "fixation")
 
-			# Abort if gaze ventures outside of fixation
-			if self.gaze.within_boundary("centre", self.el.gaze()):
+		self.saccade_made = False
 
-				if self.evm.between('cue_onset', 'cue_offset'):
-					self.refresh_display(show_cue=True)
+		self.refresh_display(phase = "saccade")
 
-				else:
-					self.refresh_display()
-			else:
-				self.bad_behaviour = "BrokeFixation"
-				raise TrialException
+		while self.evm.before("saccade_timeout"):
+			self.monitor_behaviour(phase = 'saccade')
 		
-		
-		
+		# TODO: 
+		# This needs to abort trial... best practice would be to refactor
+		# self.monitor_behaviour() to handle this... but how...
+		if not self.saccade_made:
+			self.bad_behaviour = "MissedSaccade"
 
+		else:
+			# In the absence of a response, abort trial P.response_timeout (in ms) after detecting saccade.
+			self.rc.terminate_after = [now() + P.response_timeout, TK_MS]
 			
+			# Present target and listen for response
+			self.refresh_display(phase = "target")
+			any_key()
+			self.rc.collect()
 
-
-
-
-
-		while self.gaze.within_boundary("center", self.el.gaze()):
-			
-
-
-		"""
-		:return:
-		practicing: True or False
-		saccade_condition: pro or anti
-		saccade_cue_loc: up or down
-		target_cue_loc: 3-6
-		target_loc: 1-8
-		button_rt
-		saccade_rt
-
-
-
-		"""
-
-		return {
-			"block_num": P.block_number,
-			"trial_num": P.trial_number
-		}
+			return {
+				"block_num": P.block_number,
+				"trial_num": P.trial_number
+			}
 
 	def trial_clean_up(self):
-		pass
+		if self.bad_behaviour is not None:
+			fill()
+			blit(self.error_msgs[self.bad_behaviour], registration=5, location=P.screen_c)
+			flip()
+			any_key()
 
 	def clean_up(self):
 		pass
 
-	def refresh_display(self, show_cue=False, show_saccade=False, show_target=False):
+	# Update display to reflect current trial event.
+	def refresh_display(self, phase):
 		fill()
-
-		for key, val in self.locations['placeholders']:
+		# Present all placeholders
+		# If cue: present cued placholder in its respective location
+		for key, val in self.locations['placeholders'].items():
 			
-			if key == self.cue_loc and show_cue:
+			if key == self.cue_loc and phase == 'cue':
 				to_blit = 'cued_placeholder'
 			else:
 				to_blit = 'placeholder'
@@ -288,8 +282,9 @@ class RetinoSpatioIOR(klibs.Experiment):
 				location=val
 			)
 		
-		for key, val in self.locations['fixation']:
-			if key == self.saccade_signal_loc and show_saccade:
+		# Same for fixation crosses
+		for key, val in self.locations['fixation'].items():
+			if key == self.saccade_signal_loc and phase == "saccade":
 				to_blit = 'cued_fixation'
 			else:
 				to_blit = 'fixation'
@@ -300,12 +295,49 @@ class RetinoSpatioIOR(klibs.Experiment):
 				location=val,
 			)
 			
-
-		if show_target:
+		# When needed, present target within it's respective placeholder
+		if phase == 'target':
 			blit(
 				self.stimuli['target'],
 				registration=5,
-				location=self.locations[self.target_location]
+				location=self.locations["placeholders"][self.target_location]
 			)
 
 		flip()
+
+	# TODO: this screams "I winged all of this"
+	def monitor_behaviour(self, phase):
+		# If previous check detected unwanted behaviour, abort trial
+		if self.bad_behaviour != None:
+			raise TrialException(self.error_msgs[self.bad_behaviour])
+
+		# Check for commands to quit()
+		# TODO: is this what's fucking me up?
+		ui_request()
+
+		# Monitor for pre-emptive responding
+		if key_pressed("space") and phase != "target":
+			self.bad_behaviour = "EarlyResponse"
+
+		# Check if gaze is currently where it should be
+		gaze_point = self.gaze.which_boundary(self.el.gaze())
+
+		# If gaze departs from the correct position (respective to the current trial event)
+		# admonish accordingly
+		if phase in ["fixation", 'cue'] and gaze_point != 'center':
+			self.bad_behaviour = "BrokeFixation"
+		elif phase == "saccade":
+			# TODO: not sure about all of this
+			if gaze_point == 'center':
+				# TODO: bad practice
+				pass
+			elif gaze_point == self.saccade_signal_loc:
+				self.saccade_made = True
+			elif gaze_point == "lower" and self.saccade_loc == "upper":
+				self.bad_behaviour = "WrongSaccade"
+			elif gaze_point == 'upper' and self.saccade_loc == "lower":
+				self.bad_behaviour = "WrongSaccade"
+			# TODO: no else? also bad practice
+		else:
+			if gaze_point != self.saccade_loc:
+				self.bad_behaviour = "BrokeFixation"

@@ -15,7 +15,7 @@ allow_hidpi = True
 # Available Hardware
 #########################################
 eye_tracker_available = False
-eye_tracking = False
+eye_tracking = True
 
 #########################################
 # Environment Aesthetic Defaults
