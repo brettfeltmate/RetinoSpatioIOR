@@ -5,7 +5,7 @@ __author__ = "Brett Feltmate"
 import klibs
 from klibs import P
 from klibs.KLConstants import STROKE_CENTER, TK_MS
-from klibs.KLUtilities import deg_to_px, now
+from klibs.KLUtilities import deg_to_px, now, pump
 from klibs.KLUserInterface import ui_request, key_pressed, any_key
 from klibs.KLGraphics import fill, blit, flip
 from klibs.KLGraphics import KLDraw as kld
@@ -49,6 +49,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		# Point positions to serve as anchors when positioning stimuli
 		self.locations = {
 			'placeholders': {
+				# location : [x, y]
 				1: (P.screen_c[0] - offset, P.screen_c[1] - (offset*1.5)),
 				2: (P.screen_c[0] + offset, P.screen_c[1] - (offset*1.5)),
 				3: (P.screen_c[0] - offset, P.screen_c[1] - (offset*0.5)),
@@ -104,9 +105,8 @@ class RetinoSpatioIOR(klibs.Experiment):
 					stroke=cued_stroke
 				),
 			"target":
-				kld.Annulus(
+				kld.Circle(
 					diameter=deg_to_px(0.75),
-					thickness=deg_to_px(0.1),
 					fill=WHITE
 				)
 		}
@@ -166,8 +166,10 @@ class RetinoSpatioIOR(klibs.Experiment):
 		"""
 		if P.condition == "prosaccade":
 			self.saccade_signal_loc = self.saccade_loc
+			self.wrong_saccade_loc = "upper" if self.saccade_loc == "lower" else "lower"
 		else:
 			self.saccade_signal_loc = "upper" if self.saccade_loc == "lower" else "lower"
+			self.wrong_saccade_loc = self.saccade_signal_loc
 
 		""" 	
 		Following upwards saccades, targets can appear at locations 1-6 otherwise, only 3 - 8. Initially cue location is selected from 1-6 if following a downwards saccade, 2 is added to the target position. 
@@ -200,29 +202,32 @@ class RetinoSpatioIOR(klibs.Experiment):
 		# self.el.drift_correct()
 		self.bad_behaviour = None
 
-		
-
 	def trial(self):
 		"""
 		Sequence is basically: present the appropriate display, wait the appropriate time, then present the subsequent display. Participant's behaviour (gaze & pre-emptive responses) are monitored during waiting periods. 
 		
-		Upon detecting any untoward behaviour the trial is aborted, reshuffled into the trial sequence, and the participant is admonished. 
+		Upon detecting any untoward behaviour the trial is aborted, reshuffled into the trial deck, and the participant is admonished. 
 		"""
 
 		self.refresh_display(phase = "fixation")
-		any_key()
+		
+
 
 		while self.evm.before("cue_onset"):
 			self.monitor_behaviour(phase = "fixation")
 
 		self.refresh_display(phase = 'cue')
-		any_key()
+		
+		if P.development_mode: 
+			any_key()
 
 		while self.evm.before("cue_offset"):
 			self.monitor_behaviour(phase = "cue")
 
 		self.refresh_display(phase = 'fixation')
-		any_key()
+		
+		if P.development_mode: 
+			any_key()
 
 		while self.evm.before("saccade_signal_onset"):
 			self.monitor_behaviour(phase = "fixation")
@@ -230,6 +235,9 @@ class RetinoSpatioIOR(klibs.Experiment):
 		self.saccade_made = False
 
 		self.refresh_display(phase = "saccade")
+
+		if P.development_mode: 
+			any_key()
 
 		while self.evm.before("saccade_timeout"):
 			self.monitor_behaviour(phase = 'saccade')
@@ -246,7 +254,10 @@ class RetinoSpatioIOR(klibs.Experiment):
 			
 			# Present target and listen for response
 			self.refresh_display(phase = "target")
-			any_key()
+			
+			if P.development_mode: 
+				any_key()
+			
 			self.rc.collect()
 
 			return {
@@ -305,39 +316,43 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		flip()
 
-	# TODO: this screams "I winged all of this"
+	
 	def monitor_behaviour(self, phase):
 		# If previous check detected unwanted behaviour, abort trial
 		if self.bad_behaviour != None:
 			raise TrialException(self.error_msgs[self.bad_behaviour])
 
-		# Check for commands to quit()
-		# TODO: is this what's fucking me up?
-		ui_request()
+		# Prior to repsonse period, monitor for system commands or early responses
+		if phase != "target":
+			# grab keyboard events
+			key_events = pump(True)
+			# Check for system commands
+			ui_request(queue=key_events)
+			# Check for early responding
+			if key_pressed(key='space', queue=key_events):
+				self.bad_behaviour = "EarlyResponse"
 
-		# Monitor for pre-emptive responding
-		if key_pressed("space") and phase != "target":
-			self.bad_behaviour = "EarlyResponse"
 
-		# Check if gaze is currently where it should be
-		gaze_point = self.gaze.which_boundary(self.el.gaze())
 
-		# If gaze departs from the correct position (respective to the current trial event)
-		# admonish accordingly
-		if phase in ["fixation", 'cue'] and gaze_point != 'center':
-			self.bad_behaviour = "BrokeFixation"
-		elif phase == "saccade":
-			# TODO: not sure about all of this
-			if gaze_point == 'center':
-				# TODO: bad practice
-				pass
-			elif gaze_point == self.saccade_signal_loc:
-				self.saccade_made = True
-			elif gaze_point == "lower" and self.saccade_loc == "upper":
-				self.bad_behaviour = "WrongSaccade"
-			elif gaze_point == 'upper' and self.saccade_loc == "lower":
-				self.bad_behaviour = "WrongSaccade"
-			# TODO: no else? also bad practice
-		else:
-			if gaze_point != self.saccade_loc:
+		# Pull gaze behaviour from eyelink 
+		eye_events = self.el.get_event_cue()
+		# Check gaze events
+		if phase in ['fixation', 'cue']:
+			if not self.el.within_boundary(label='center', event_queue=eye_events):
 				self.bad_behaviour = "BrokeFixation"
+		
+		elif phase == "target":
+			if not self.el.within_boundary(label=self.saccade_loc, event_queue=eye_events):
+				self.bad_behaviour = 'BrokeFixation'
+
+		else: # period during which participants must saccade to the new fixation point
+			if self.el.within_boundary(label=self.saccade_loc, event_queue=eye_events):
+				self.saccade_made = True
+			elif self.el.within_boundary(label=self.wrong_saccade_loc, event_queue=eye_events):
+				self.bad_behaviour = "WrongSaccade"
+			elif self.el.within_boundary(label='center', event_queue=eye_events):
+				return
+			else:
+				self.bad_behaviour = "BrokeFixation"
+		
+		
