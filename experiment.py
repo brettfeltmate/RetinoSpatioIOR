@@ -113,7 +113,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		
 		# Eye-tracker boundaries (for montoring fixations & saccades)
-		self.gaze = BoundarySet([
+		self.el.add_boundaries(boundaries = [
 			CircleBoundary(
 				label = "upper", 
 				center = self.locations["fixation"]['upper'], 
@@ -334,26 +334,27 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 
 		# Pull gaze behaviour from eyelink 
-		eye_events = self.el.get_event_cue()
+		e = self.el.get_event_cue()
 		# During fixation & cue phase, gaze should not depart from central fixation.
 		if phase in ['fixation', 'cue']:
-			if not self.el.within_boundary(label='center', event_queue=eye_events):
+			if not self.el.within_boundary(label='center', event_queue=e):
 				self.bad_behaviour = "BrokeFixation"
 		
 		# During target phase, gaze should not depart from the saccaded to fixation
 		elif phase == "target":
-			if not self.el.within_boundary(label=self.saccade_loc, event_queue=eye_events):
+			if not self.el.within_boundary(label=self.saccade_loc, event_queue=e):
 				self.bad_behaviour = 'BrokeFixation'
 		# period during which participants must saccade to the new fixation point
 		else: 
 			# If the correct saccade is made, great
-			if self.el.within_boundary(label=self.saccade_loc, event_queue=eye_events):
+			# TODO: log saccade info
+			if self.el.saccade_to_boundary(label=self.saccade_loc, event_queue=e) is not False:
 				self.saccade_made = True
 			# Abort if participant saccades to the wrong location
-			elif self.el.within_boundary(label=self.wrong_saccade_loc, event_queue=eye_events):
+			elif self.el.saccade_to_boundary(label=self.wrong_saccade_loc, event_queue=e) is not False:
 				self.bad_behaviour = "WrongSaccade"
 			# Remaining at the central fixation doesn't count as an error, until the saccade window elapses; if self.saccade_made is not set to true, trial will abort pre-target onset
-			elif self.el.within_boundary(label='center', event_queue=eye_events):
+			elif self.el.within_boundary(label='center', event_queue=e):
 				return
 			# If participant looks anywhere other than central or intended fixation, abort
 			else:
