@@ -334,7 +334,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 
 		# Pull gaze behaviour from eyelink 
-		e = self.el.get_event_cue()
+		e = self.el.get_event_queue()
 		# During fixation & cue phase, gaze should not depart from central fixation.
 		if phase in ['fixation', 'cue']:
 			if not self.el.within_boundary(label='center', event_queue=e):
