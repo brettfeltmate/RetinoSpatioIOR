@@ -5,7 +5,7 @@ __author__ = "Brett Feltmate"
 import klibs
 from klibs import P
 from klibs.KLConstants import STROKE_CENTER, TK_MS, EL_GAZE_POS, EL_SACCADE_END
-from klibs.KLUtilities import deg_to_px, now, pump
+from klibs.KLUtilities import deg_to_px, now, pump, flush
 from klibs.KLUserInterface import ui_request, key_pressed, any_key
 from klibs.KLGraphics import fill, blit, flip
 from klibs.KLGraphics import KLDraw as kld
@@ -13,6 +13,7 @@ from klibs.KLBoundary import CircleBoundary
 from klibs.KLCommunication import message
 from klibs.KLResponseCollectors import KeyPressResponse
 from klibs.KLExceptions import TrialException
+from klibs.KLDatabase import EntryTemplate
 
 WHITE = (255, 255, 255, 255)
 BLACK = (0, 0, 0, 255)
@@ -152,7 +153,11 @@ class RetinoSpatioIOR(klibs.Experiment):
 		"""
 
 	def block(self):
-		pass
+		fill()
+		message("any key to start", blit_txt=True, location=P.screen_c, registration=5)
+		flip()
+
+		any_key()
 
 	def setup_response_collector(self):
 		self.rc.display_callback = self.monitor_behaviour
@@ -199,7 +204,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		for e in events:
 			self.evm.register_ticket([e[1], e[0]])
 
-		# self.el.drift_correct()
+		self.el.drift_correct()
 		self.bad_behaviour = None
 
 	def trial(self):
@@ -211,16 +216,19 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		self.refresh_display(phase = "fixation")
 		
+		flush()
 		while self.evm.before("cue_onset"):
 			self.monitor_behaviour(phase = "fixation")
 
 		self.refresh_display(phase = 'cue')
 
+		flush()
 		while self.evm.before("cue_offset"):
 			self.monitor_behaviour(phase = "cue")
 
 		self.refresh_display(phase = 'fixation')
 
+		flush()
 		while self.evm.before("saccade_signal_onset"):
 			self.monitor_behaviour(phase = "fixation")
 
@@ -228,6 +236,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		self.refresh_display(phase = "saccade")
 
+		flush()
 		while self.evm.before("saccade_timeout") and not self.saccade_made:
 			self.monitor_behaviour(phase = 'saccade')
 		
@@ -242,8 +251,10 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 			target_onset = now() + P.saccade_target_onset_asynchrony
 
+			flush()
 			while now() < target_onset:
-				self.monitor_behaviour(phase='fixation')
+				self.monitor_behaviour(phase='target')
+
 			# In the absence of a response, abort trial P.response_timeout (in ms) after detecting saccade.
 			self.rc.terminate_after = [now() + P.response_timeout, TK_MS]
 			
@@ -251,22 +262,48 @@ class RetinoSpatioIOR(klibs.Experiment):
 			self.refresh_display(phase = "target")
 			
 			self.rc.collect()
+			rt = self.rc.keypress_listener.response(value=False)
 
 			return {
 				"block_num": P.block_number,
-				"trial_num": P.trial_number
+				"trial_num": P.trial_number,
+				"condition": P.condition,
+				"cue_location": self.cue_loc,
+				"saccade_location": self.saccade_loc,
+				"target_location": self.target_location,
+				"rt": rt
 			}
 
 	def trial_clean_up(self):
-		# Admonish participant if any undesered behaviour occurs.
-		if self.bad_behaviour is not None:
-			fill()
-			blit(self.error_msgs[self.bad_behaviour], registration=5, location=P.screen_c)
-			flip()
-			any_key()
+		self.rc.reset()
 
 	def clean_up(self):
 		pass
+
+	def log_and_recycle_trial(self):
+		flush()
+
+		fill()
+		blit(self.error_msgs[self.bad_behaviour], registration=5, location=P.screen_c)
+		flip()
+
+		any_key()
+
+		err_data = {
+			"participant_id": P.participant_id,
+            "block_num": P.block_number,
+            "trial_num": P.trial_number,
+            "condition": P.condition,
+            "cue_location": self.cue_loc,
+	    	"saccade_location": self.saccade_loc,
+            "target_location": self.target_location,
+            "err_type": self.bad_behaviour
+		}
+
+		self.database.insert(data=err_data, table="errors")
+		raise TrialException(self.error_msgs[self.bad_behaviour])
+
+
 
 	# Update display to reflect current trial event.
 	def refresh_display(self, phase):
@@ -313,7 +350,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 	def monitor_behaviour(self, phase):
 		# If previous check detected unwanted behaviour, abort trial
 		if self.bad_behaviour != None:
-			raise TrialException(self.error_msgs[self.bad_behaviour])
+			self.log_and_recycle_trial()
 
 		# Prior to repsonse period, monitor for system commands or early responses
 		if phase != "target":

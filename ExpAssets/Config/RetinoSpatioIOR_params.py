@@ -14,7 +14,7 @@ allow_hidpi = True
 #########################################
 # Available Hardware
 #########################################
-eye_tracker_available = False
+eye_tracker_available = True
 eye_tracking = True
 
 #########################################
@@ -69,5 +69,6 @@ datafile_ext = ".txt"
 fixation_duration = 750
 cue_duration = 300
 cue_saccade_onset_asynchrony = 600
+saccade_target_onset_asynchrony = 300
 saccade_timeout = 600
 response_timeout = 1500

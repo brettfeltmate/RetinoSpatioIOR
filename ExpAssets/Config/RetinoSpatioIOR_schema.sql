@@ -54,5 +54,22 @@ CREATE TABLE trials (
     id integer primary key autoincrement not null,
     participant_id integer not null references participants(id),
     block_num integer not null,
-    trial_num integer not null
+    trial_num integer not null,
+    condition text not null,
+    cue_location text not null,
+    saccade_location text not null,
+    target_location text not null,
+    rt text not null
 );
+
+CREATE TABLE errors (
+    id integer primary key autoincrement not null,
+    participant_id integer not null references participants(id),
+    block_num integer not null,
+    trial_num integer not null,
+    condition text not null,
+    cue_location text not null,
+    saccade_location text not null,
+    target_location text not null,
+    err_type text not null
+)
