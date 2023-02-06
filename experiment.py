@@ -215,17 +215,11 @@ class RetinoSpatioIOR(klibs.Experiment):
 			self.monitor_behaviour(phase = "fixation")
 
 		self.refresh_display(phase = 'cue')
-		
-		if P.development_mode: 
-			any_key()
 
 		while self.evm.before("cue_offset"):
 			self.monitor_behaviour(phase = "cue")
 
 		self.refresh_display(phase = 'fixation')
-		
-		if P.development_mode: 
-			any_key()
 
 		while self.evm.before("saccade_signal_onset"):
 			self.monitor_behaviour(phase = "fixation")
@@ -233,9 +227,6 @@ class RetinoSpatioIOR(klibs.Experiment):
 		self.saccade_made = False
 
 		self.refresh_display(phase = "saccade")
-
-		if P.development_mode: 
-			any_key()
 
 		while self.evm.before("saccade_timeout") and not self.saccade_made:
 			self.monitor_behaviour(phase = 'saccade')
@@ -247,14 +238,17 @@ class RetinoSpatioIOR(klibs.Experiment):
 			self.bad_behaviour = "MissedSaccade"
 
 		else:
+			self.refresh_display(phase='fixation')
+
+			target_onset = now() + P.saccade_target_onset_asynchrony
+
+			while now() < target_onset:
+				self.monitor_behaviour(phase='fixation')
 			# In the absence of a response, abort trial P.response_timeout (in ms) after detecting saccade.
 			self.rc.terminate_after = [now() + P.response_timeout, TK_MS]
 			
 			# Present target and listen for response
 			self.refresh_display(phase = "target")
-			
-			if P.development_mode: 
-				any_key()
 			
 			self.rc.collect()
 
