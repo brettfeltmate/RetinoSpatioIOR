@@ -237,7 +237,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		if P.development_mode: 
 			any_key()
 
-		while self.evm.before("saccade_timeout"):
+		while self.evm.before("saccade_timeout") and not self.saccade_made:
 			self.monitor_behaviour(phase = 'saccade')
 		
 		# TODO: 
@@ -337,27 +337,35 @@ class RetinoSpatioIOR(klibs.Experiment):
 		e = self.el.get_event_queue()
 		# During fixation & cue phase, gaze should not depart from central fixation.
 		if phase in ['fixation', 'cue']:
-			if not self.el.within_boundary(label='center', valid_events = [EL_GAZE_POS], event_queue=e):
+			if not self.el.within_boundary('center', [EL_GAZE_POS], e):
 				self.bad_behaviour = "BrokeFixation"
 		
 		# During target phase, gaze should not depart from the saccaded to fixation
 		elif phase == "target":
-			if not self.el.within_boundary(label=self.saccade_loc, valid_events = [EL_GAZE_POS], event_queue=e):
+			if not self.el.within_boundary(self.saccade_loc, [EL_GAZE_POS], e):
 				self.bad_behaviour = 'BrokeFixation'
 		# period during which participants must saccade to the new fixation point
 		else: 
-			# If the correct saccade is made, great
-			# TODO: log saccade info
-			if self.el.saccade_to_boundary(label=self.saccade_loc, event_queue=e) is not False:
+			if self.el.within_boundary(self.saccade_loc, [EL_GAZE_POS, EL_SACCADE_END], e):
 				self.saccade_made = True
-			# Abort if participant saccades to the wrong location
-			elif self.el.saccade_to_boundary(label=self.wrong_saccade_loc, event_queue=e) is not False:
+
+			elif self.el.within_boundary(self.wrong_saccade_loc, [EL_GAZE_POS, EL_SACCADE_END], e):
 				self.bad_behaviour = "WrongSaccade"
-			# Remaining at the central fixation doesn't count as an error, until the saccade window elapses; if self.saccade_made is not set to true, trial will abort pre-target onset
-			elif self.el.within_boundary(label='center', valid_events = [EL_GAZE_POS], event_queue=e):
-				return
-			# If participant looks anywhere other than central or intended fixation, abort
+
 			else:
-				self.bad_behaviour = "BrokeFixation"
+				return
+			# # If the correct saccade is made, great
+			# # TODO: log saccade info
+			# if self.el.saccade_to_boundary(self.saccade_loc, e) is not False:
+			# 	self.saccade_made = True
+			# # Abort if participant saccades to the wrong location
+			# elif self.el.saccade_to_boundary(self.wrong_saccade_loc, e) is not False:
+			# 	self.bad_behaviour = "WrongSaccade"
+			# # Remaining at the central fixation doesn't count as an error, until the saccade window elapses; if self.saccade_made is not set to true, trial will abort pre-target onset
+			# elif self.el.within_boundary(label='center', valid_events = [EL_GAZE_POS], event_queue=e):
+			# 	return
+			# # If participant looks anywhere other than central or intended fixation, abort
+			# else:
+			# 	self.bad_behaviour = "BrokeFixation"
 		
 		
