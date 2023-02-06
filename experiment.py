@@ -9,7 +9,7 @@ from klibs.KLUtilities import deg_to_px, now, pump
 from klibs.KLUserInterface import ui_request, key_pressed, any_key
 from klibs.KLGraphics import fill, blit, flip
 from klibs.KLGraphics import KLDraw as kld
-from klibs.KLBoundary import BoundarySet, CircleBoundary
+from klibs.KLBoundary import CircleBoundary
 from klibs.KLCommunication import message
 from klibs.KLResponseCollectors import KeyPressResponse
 from klibs.KLExceptions import TrialException
@@ -117,17 +117,17 @@ class RetinoSpatioIOR(klibs.Experiment):
 			CircleBoundary(
 				label = "upper", 
 				center = self.locations["fixation"]['upper'], 
-				radius = deg_to_px(1.5)
+				radius = deg_to_px(3)
 			),
 			CircleBoundary(
 				label = "center",
 				center = self.locations['fixation']['center'],
-				radius = deg_to_px(1.5)
+				radius = deg_to_px(3)
 			),
 			CircleBoundary(
 				label = "lower",
 				center = self.locations['fixation']['lower'],
-				radius = deg_to_px(1.5)
+				radius = deg_to_px(3)
 			)
 		])
 
