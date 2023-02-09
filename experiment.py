@@ -205,7 +205,6 @@ class RetinoSpatioIOR(klibs.Experiment):
 			self.evm.register_ticket([e[1], e[0]])
 
 		self.el.drift_correct()
-		self.bad_behaviour = None
 
 	def trial(self):
 		"""
@@ -244,12 +243,12 @@ class RetinoSpatioIOR(klibs.Experiment):
 		# This needs to abort trial... best practice would be to refactor
 		# self.monitor_behaviour() to handle this... but how...
 		if not self.saccade_made:
-			self.bad_behaviour = "MissedSaccade"
+			self.abort_and_recycle_trial("MissedSaccade")
 
 		else:
 			self.refresh_display(phase='fixation')
 
-			target_onset = now() + P.saccade_target_onset_asynchrony
+			target_onset = now() + (P.saccade_target_onset_asynchrony * 0.001) # milliseconds
 
 			flush()
 			while now() < target_onset:
@@ -275,16 +274,16 @@ class RetinoSpatioIOR(klibs.Experiment):
 			}
 
 	def trial_clean_up(self):
-		self.rc.reset()
+		pass
 
 	def clean_up(self):
 		pass
 
-	def log_and_recycle_trial(self):
+	def abort_and_recycle_trial(self, err_type):
 		flush()
 
 		fill()
-		blit(self.error_msgs[self.bad_behaviour], registration=5, location=P.screen_c)
+		blit(self.error_msgs[err_type], registration=5, location=P.screen_c)
 		flip()
 
 		any_key()
@@ -297,11 +296,11 @@ class RetinoSpatioIOR(klibs.Experiment):
             "cue_location": self.cue_loc,
 	    	"saccade_location": self.saccade_loc,
             "target_location": self.target_location,
-            "err_type": self.bad_behaviour
+            "err_type": err_type
 		}
 
 		self.database.insert(data=err_data, table="errors")
-		raise TrialException(self.error_msgs[self.bad_behaviour])
+		raise TrialException(self.error_msgs[err_type])
 
 
 
@@ -312,7 +311,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		# If cue: present cued placholder in its respective location
 		for key, val in self.locations['placeholders'].items():
 			
-			if key == self.cue_loc and phase == 'cue':
+			if phase == 'cue' and key == self.cue_loc:
 				to_blit = 'cued_placeholder'
 			else:
 				to_blit = 'placeholder'
@@ -325,7 +324,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		
 		# Same for fixation crosses
 		for key, val in self.locations['fixation'].items():
-			if key == self.saccade_signal_loc and phase == "saccade":
+			if phase == "saccade" and key == self.saccade_signal_loc:
 				to_blit = 'cued_fixation'
 			else:
 				to_blit = 'fixation'
@@ -348,10 +347,6 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 	
 	def monitor_behaviour(self, phase):
-		# If previous check detected unwanted behaviour, abort trial
-		if self.bad_behaviour != None:
-			self.log_and_recycle_trial()
-
 		# Prior to repsonse period, monitor for system commands or early responses
 		if phase != "target":
 			# grab keyboard events
@@ -360,7 +355,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			ui_request(queue=key_events)
 			# Check for early responding
 			if key_pressed(key='space', queue=key_events):
-				self.bad_behaviour = "EarlyResponse"
+				self.abort_and_recycle_trial("EarlyResponse")
 
 
 
@@ -369,34 +364,21 @@ class RetinoSpatioIOR(klibs.Experiment):
 		# During fixation & cue phase, gaze should not depart from central fixation.
 		if phase in ['fixation', 'cue']:
 			if not self.el.within_boundary('center', [EL_GAZE_POS], e):
-				self.bad_behaviour = "BrokeFixation"
+				self.abort_and_recycle_trial("BrokeFixation")
 		
 		# During target phase, gaze should not depart from the saccaded to fixation
 		elif phase == "target":
 			if not self.el.within_boundary(self.saccade_loc, [EL_GAZE_POS], e):
-				self.bad_behaviour = 'BrokeFixation'
+				self.abort_and_recycle_trial('BrokeFixation')
 		# period during which participants must saccade to the new fixation point
 		else: 
 			if self.el.within_boundary(self.saccade_loc, [EL_GAZE_POS, EL_SACCADE_END], e):
 				self.saccade_made = True
 
 			elif self.el.within_boundary(self.wrong_saccade_loc, [EL_GAZE_POS, EL_SACCADE_END], e):
-				self.bad_behaviour = "WrongSaccade"
+				self.abort_and_recycle_trial("WrongSaccade")
 
 			else:
-				return
-			# # If the correct saccade is made, great
-			# # TODO: log saccade info
-			# if self.el.saccade_to_boundary(self.saccade_loc, e) is not False:
-			# 	self.saccade_made = True
-			# # Abort if participant saccades to the wrong location
-			# elif self.el.saccade_to_boundary(self.wrong_saccade_loc, e) is not False:
-			# 	self.bad_behaviour = "WrongSaccade"
-			# # Remaining at the central fixation doesn't count as an error, until the saccade window elapses; if self.saccade_made is not set to true, trial will abort pre-target onset
-			# elif self.el.within_boundary(label='center', valid_events = [EL_GAZE_POS], event_queue=e):
-			# 	return
-			# # If participant looks anywhere other than central or intended fixation, abort
-			# else:
-			# 	self.bad_behaviour = "BrokeFixation"
+				pass
 		
 		
