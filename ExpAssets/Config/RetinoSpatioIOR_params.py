@@ -40,10 +40,10 @@ saccadic_motion_threshold = 0.15
 # Experiment Structure
 #########################################
 multi_session_project = False
-trials_per_block = 96
-blocks_per_experiment = 3
+trials_per_block = 48
+blocks_per_experiment = 6
 table_defaults = {}
-conditions = ["prosaccade", "antisaccade"]
+conditions = ["pro", "anti"]
 default_condition = None
 
 #########################################
@@ -72,3 +72,4 @@ cue_saccade_onset_asynchrony = 600
 saccade_target_onset_asynchrony = 300
 saccade_timeout = 600
 response_timeout = 1500
+trials_per_practice = 12

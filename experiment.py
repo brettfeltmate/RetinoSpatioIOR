@@ -143,16 +143,38 @@ class RetinoSpatioIOR(klibs.Experiment):
 		self.rc.uses([KeyPressResponse])
 		self.rc.keypress_listener.key_map = {"space": "space"}
 
- 
-		"""
-		Sequence:
+		# Establish block sequence
+		base = ['pro', 'anti'] if P.condition == 'pro' else ['anti', 'pro']
+		self.block_sequence = base * P.blocks_per_experiment / 2
 
-		Fixation  Cue      Saccade      Post-saccade gap  Target & Response
-		|--------|--------|------------|-----------------|-----------------|
-		500ms    300ms     600ms or TO  300ms             1500ms or TO
-		"""
+		if P.run_practice_blocks:
+			# Add extra blocks if running practice trials
+			self.block_sequence.extend(base)
+			self.insert_practice_block(block_nums=[1, 2], trial_counts=P.trials_per_practice)
 
 	def block(self):
+		self.current_condition = self.block_sequence.pop(0)
+
+		if P.practicing:
+			fill()
+			message("This is a practice block", blit_txt=True, location=P.screen_c, registration=5)
+			flip()
+
+			any_key()
+
+		fill()
+		if self.current_condition == 'pro':
+			message("For this block, make prosaccades towards the cue.", 
+	   			blit_txt=True, location=P.screen_c, registration=5
+			)
+		else:
+			message("For this block, make antisaccades away from the cue.", 
+	   			blit_txt=True, location=P.screen_c, registration=5
+			)
+
+		flip()
+		any_key()
+
 		fill()
 		message("any key to start", blit_txt=True, location=P.screen_c, registration=5)
 		flip()
@@ -169,7 +191,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		""" 		
 		If participants are to make a prosaccade, the signal to saccade appears at the location the are to saccade to. Otherwise (for antisaccades) the signal appears at the location opposite. 
 		"""
-		if P.condition == "prosaccade":
+		if self.current_condition == "pro":
 			self.saccade_signal_loc = self.saccade_loc
 			self.wrong_saccade_loc = "upper" if self.saccade_loc == "lower" else "lower"
 		else:
@@ -177,7 +199,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			self.wrong_saccade_loc = self.saccade_signal_loc
 
 		""" 	
-		Following upwards saccades, targets can appear at locations 1-6 otherwise, only 3 - 8. Initially cue location is selected from 1-6 if following a downwards saccade, 2 is added to the target position. 
+		Following upwards saccades, targets can appear at locations 1-6 otherwise, only 3 - 8. Initially cue location is selected from 1-6. If following a downwards saccade, 2 is added to the target position. 
 		"""
 		if self.saccade_loc == 'upper':
 			self.target_location = self.target_loc
@@ -266,7 +288,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			return {
 				"block_num": P.block_number,
 				"trial_num": P.trial_number,
-				"condition": P.condition,
+				"condition": self.current_condition,
 				"cue_location": self.cue_loc,
 				"saccade_location": self.saccade_loc,
 				"target_location": self.target_location,
@@ -292,7 +314,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			"participant_id": P.participant_id,
             "block_num": P.block_number,
             "trial_num": P.trial_number,
-            "condition": P.condition,
+            "condition": self.current_condition,
             "cue_location": self.cue_loc,
 	    	"saccade_location": self.saccade_loc,
             "target_location": self.target_location,
