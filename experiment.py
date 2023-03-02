@@ -13,7 +13,6 @@ from klibs.KLBoundary import CircleBoundary
 from klibs.KLCommunication import message
 from klibs.KLResponseCollectors import KeyPressResponse
 from klibs.KLExceptions import TrialException
-from klibs.KLDatabase import EntryTemplate
 
 WHITE = (255, 255, 255, 255)
 BLACK = (0, 0, 0, 255)
@@ -44,7 +43,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		[]             []
 		"""
-		# Stimuli are offset from each other by units of 6º
+		# Stimuli are offset from each other by units of 6º, but are brought in when developing (small screen)
 		offset = deg_to_px(3) if P.development_mode else deg_to_px(6)
 
 		# Point positions to serve as anchors when positioning stimuli
@@ -135,9 +134,9 @@ class RetinoSpatioIOR(klibs.Experiment):
 		# Error messages
 		self.error_msgs = {
 			"BrokeFixation":  message("Moved eyes too soon!", blit_txt=False),
-			"MissedSaccade": message("No eye movement detected!", blit_txt=False),
-			"WrongSaccade":  message("Moved eyes in wrong direction!", blit_txt=False),
-			"EarlyResponse": message("Please wait until the target appears to respond!", blit_txt=False)
+			"MissedSaccade":  message("No eye movement detected!", blit_txt=False),
+			"WrongSaccade":   message("Moved eyes in wrong direction!", blit_txt=False),
+			"EarlyResponse":  message("Please wait until the target appears to respond!", blit_txt=False)
 		}
 
 		self.rc.uses([KeyPressResponse])
@@ -145,15 +144,15 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		# Establish block sequence
 		base = ['pro', 'anti'] if P.condition == 'pro' else ['anti', 'pro']
-		self.block_sequence = base * P.blocks_per_experiment / 2
+		self.block_sequence = [item for item in base for i in range(P.blocks_per_condition)]
 
 		if P.run_practice_blocks:
 			# Add extra blocks if running practice trials
 			self.block_sequence.extend(base)
-			self.insert_practice_block(block_nums=[1, 2], trial_counts=P.trials_per_practice)
+			self.insert_practice_block(block_nums=[1, 6], trial_counts=P.trials_per_practice)
 
 	def block(self):
-		self.current_condition = self.block_sequence.pop(0)
+		self.block_condition = self.block_sequence.pop(0)
 
 		if P.practicing:
 			fill()
@@ -163,7 +162,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			any_key()
 
 		fill()
-		if self.current_condition == 'pro':
+		if self.block_condition == 'pro':
 			message("For this block, make prosaccades towards the cue.", 
 	   			blit_txt=True, location=P.screen_c, registration=5
 			)
@@ -191,7 +190,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 		""" 		
 		If participants are to make a prosaccade, the signal to saccade appears at the location the are to saccade to. Otherwise (for antisaccades) the signal appears at the location opposite. 
 		"""
-		if self.current_condition == "pro":
+		if self.block_condition == "pro":
 			self.saccade_signal_loc = self.saccade_loc
 			self.wrong_saccade_loc = "upper" if self.saccade_loc == "lower" else "lower"
 		else:
@@ -288,7 +287,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			return {
 				"block_num": P.block_number,
 				"trial_num": P.trial_number,
-				"condition": self.current_condition,
+				"condition": self.block_condition,
 				"cue_location": self.cue_loc,
 				"saccade_location": self.saccade_loc,
 				"target_location": self.target_location,
@@ -314,7 +313,7 @@ class RetinoSpatioIOR(klibs.Experiment):
 			"participant_id": P.participant_id,
             "block_num": P.block_number,
             "trial_num": P.trial_number,
-            "condition": self.current_condition,
+            "condition": self.block_condition,
             "cue_location": self.cue_loc,
 	    	"saccade_location": self.saccade_loc,
             "target_location": self.target_location,

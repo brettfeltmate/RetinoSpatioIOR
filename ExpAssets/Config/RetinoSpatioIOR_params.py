@@ -41,7 +41,7 @@ saccadic_motion_threshold = 0.15
 #########################################
 multi_session_project = False
 trials_per_block = 48
-blocks_per_experiment = 6
+blocks_per_experiment = 10
 table_defaults = {}
 conditions = ["pro", "anti"]
 default_condition = None
@@ -73,3 +73,4 @@ saccade_target_onset_asynchrony = 300
 saccade_timeout = 600
 response_timeout = 1500
 trials_per_practice = 12
+blocks_per_condition = blocks_per_experiment / 2
