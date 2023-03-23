@@ -148,7 +148,6 @@ class RetinoSpatioIOR(klibs.Experiment):
 
 		if P.run_practice_blocks:
 			# Add extra blocks if running practice trials
-			self.block_sequence.extend(base)
 			self.insert_practice_block(block_nums=[1, 6], trial_counts=P.trials_per_practice)
 
 	def block(self):

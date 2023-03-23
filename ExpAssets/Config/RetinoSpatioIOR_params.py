@@ -74,3 +74,5 @@ saccade_timeout = 600
 response_timeout = 1500
 trials_per_practice = 12
 blocks_per_condition = blocks_per_experiment / 2
+if run_practice_blocks:
+    blocks_per_condition += 1
